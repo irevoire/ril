@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod custom;
+pub mod sqlite;
 
 pub type TaskId = u32;
 
