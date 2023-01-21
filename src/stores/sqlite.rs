@@ -17,17 +17,10 @@ impl SqliteStore {
         connection
             .prepare(
                 r#"
-                DROP TABLE IF EXISTS tasks;
-                DROP TYPE IF EXISTS status;
-                DROP TYPE IF EXISTS type;
-
-                CREATE TYPE status AS ENUM ('enqueued', 'processing', 'succeeded', 'failed');
-                CREATE TYPE type AS ENUM ('indexCreation', 'indexDeletion', 'indexSwap', 'documentAddition', 'documentDeletion');
-                
-                CREATE TABLE tasks (
+                CREATE TABLE IF NOT EXISTS tasks (
                     task_id INT PRIMARY KEY,
-                    status status,
-                    type type
+                    status TEXT,
+                    type TEXT
                 );
                 "#,
             )
@@ -44,17 +37,15 @@ impl SqliteStore {
                 r#"
                 INSERT INTO tasks (task_id, status, type) VALUES (?, ?, ?);
                 "#,
-            )
-            .unwrap()
-            .execute(params![task.id, task.status, task.r#type])
-            .expect("Error while inserting document");
+            )?
+            .execute(params![task.id, task.status, task.r#type])?;
 
         Ok(())
     }
 
     pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
         let mut request = format!(
-            "SELECT (task_id, status, type) FROM tasks LIMIT {} OFFSET {} WHERE",
+            "SELECT task_id, status, type FROM tasks LIMIT {} OFFSET {} WHERE",
             query.limit, query.offset
         );
 
@@ -67,16 +58,15 @@ impl SqliteStore {
                     .map(|id| id.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            )
-            .unwrap();
+            )?;
         }
 
         if let Some(after_id) = query.after_id {
-            write!(request, " task_id > {after_id}").unwrap();
+            write!(request, " task_id > {after_id}")?;
         }
 
         if let Some(before_id) = query.before_id {
-            write!(request, " task_id < {before_id}").unwrap();
+            write!(request, " task_id < {before_id}")?;
         }
 
         if let Some(ref statuses) = query.statuses {
@@ -88,8 +78,7 @@ impl SqliteStore {
                     .map(|id| id.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            )
-            .unwrap();
+            )?;
         }
 
         if let Some(ref types) = query.types {
@@ -101,8 +90,7 @@ impl SqliteStore {
                     .map(|id| id.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            )
-            .unwrap();
+            )?;
         }
 
         if request.ends_with("WHERE") {
@@ -111,22 +99,17 @@ impl SqliteStore {
             request.push_str(";");
         }
 
-        dbg!(&request);
-
         Ok(self
             .com
-            .prepare(&request)
-            .unwrap()
+            .prepare(&request)?
             .query_map(params![], |row| {
                 Ok(Task {
                     id: row.get(0)?,
                     status: row.get(1)?,
                     r#type: row.get(2)?,
                 })
-            })
-            .unwrap()
-            .map(Result::unwrap)
-            .collect())
+            })?
+            .collect::<Result<_, _>>()?)
     }
 }
 
@@ -152,7 +135,7 @@ impl FromSql for Status {
 
 impl ToSql for Type {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(serde_json::to_string(&self).unwrap().into())
+        Ok(self.to_string().into())
     }
 }
 

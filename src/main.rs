@@ -24,14 +24,14 @@ fn main() {
         }
         Option::Query(query) => {
             let now = Instant::now();
-            dbg!(custom.query(&query).unwrap());
+            // dbg!(custom.query(&query).unwrap());
             let custom = now.elapsed();
             let now = Instant::now();
-            dbg!(sqlite.query(&query).unwrap());
+            // dbg!(sqlite.query(&query).unwrap());
             let sqlite = now.elapsed();
 
-            println!("Inserting in the custom db took {custom:?}");
-            println!("Inserting in the sqlite db took {sqlite:?}");
+            println!("Querying in the custom db took {custom:?}");
+            println!("Querying in the sqlite db took {sqlite:?}");
         }
     }
 }
