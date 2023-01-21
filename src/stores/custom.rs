@@ -19,7 +19,7 @@ impl CustomStore {
     pub fn new() -> Self {
         let db_path = Path::new("store.custom");
         std::fs::create_dir_all(db_path).unwrap();
-        let env = EnvOpenOptions::new().max_dbs(4).open(db_path).unwrap();
+        let env = EnvOpenOptions::new().max_dbs(3).open(db_path).unwrap();
         let mut wtxn = env.write_txn().unwrap();
 
         let tasks = env.create_database(&mut wtxn, Some("tasks")).unwrap();
@@ -36,8 +36,8 @@ impl CustomStore {
         }
     }
 
-    fn last_task_id(&self, rtxn: &RoTxn) -> Result<TaskId> {
-        Ok(self.tasks.last(rtxn)?.map_or(0, |(k, _v)| k))
+    fn last_task_id(&self, rtxn: &RoTxn) -> Result<Option<TaskId>> {
+        Ok(self.tasks.last(rtxn)?.map(|(k, _v)| k))
     }
 
     // if you call this function twice at the same time the second call will wait on the blocking `write_txn`.
@@ -58,13 +58,19 @@ impl CustomStore {
         types.insert(1);
         self.types.put(&mut wtxn, &task.r#type, &types)?;
 
+        wtxn.commit()?;
+
         Ok(())
     }
 
     pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
         let rtxn = self.env.read_txn()?;
+        let last_task_id = match self.last_task_id(&rtxn)? {
+            Some(last_task_id) => last_task_id,
+            None => return Ok(Vec::new()),
+        };
         let mut tasks = match query.task_id {
-            None => RoaringBitmap::from_sorted_iter(0..self.last_task_id(&rtxn)?)?,
+            None => RoaringBitmap::from_sorted_iter(0..=last_task_id)?,
             Some(ref ids) => ids.iter().copied().collect(),
         };
 
