@@ -59,6 +59,16 @@ pub struct Query {
     offset: usize,
 }
 
+impl Query {
+    pub fn is_empty(&self) -> bool {
+        self.task_id.is_none()
+            && self.after_id.is_none()
+            && self.before_id.is_none()
+            && self.statuses.is_none()
+            && self.types.is_none()
+    }
+}
+
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -51,11 +51,11 @@ impl CustomStore {
             .statuses
             .get(&mut wtxn, &task.status)?
             .unwrap_or_default();
-        statuses.insert(1);
+        statuses.insert(task.id);
         self.statuses.put(&mut wtxn, &task.status, &statuses)?;
 
         let mut types = self.types.get(&mut wtxn, &task.r#type)?.unwrap_or_default();
-        types.insert(1);
+        types.insert(task.id);
         self.types.put(&mut wtxn, &task.r#type, &types)?;
 
         wtxn.commit()?;
@@ -95,11 +95,11 @@ impl CustomStore {
         }
 
         if let Some(after_id) = query.after_id {
-            tasks.remove_range(after_id..);
+            tasks.remove_range(..=after_id);
         }
 
         if let Some(before_id) = query.before_id {
-            tasks.remove_range(..before_id);
+            tasks.remove_range(before_id..);
         }
 
         tasks

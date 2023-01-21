@@ -44,64 +44,68 @@ impl SqliteStore {
     }
 
     pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
-        let mut request = format!(
-            "SELECT task_id, status, type FROM tasks LIMIT {} OFFSET {} WHERE",
+        let mut request = String::from("SELECT task_id, status, type FROM tasks");
+
+        if !query.is_empty() {
+            request.push_str(" WHERE");
+
+            if let Some(ref task_ids) = query.task_id {
+                write!(
+                    request,
+                    " task_id IN ({}) AND",
+                    task_ids
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+            }
+
+            if let Some(after_id) = query.after_id {
+                write!(request, " task_id > {after_id} AND")?;
+            }
+
+            if let Some(before_id) = query.before_id {
+                write!(request, " task_id < {before_id} AND")?;
+            }
+
+            if let Some(ref statuses) = query.statuses {
+                write!(
+                    request,
+                    " status IN ({}) AND",
+                    statuses
+                        .iter()
+                        .map(|status| format!("\"{status}\""))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+            }
+
+            if let Some(ref types) = query.types {
+                write!(
+                    request,
+                    " type IN ({}) AND",
+                    types
+                        .iter()
+                        .map(|ty| format!("\"{ty}\""))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+            }
+        }
+
+        write!(
+            request,
+            " true LIMIT {} OFFSET {};",
             query.limit, query.offset
-        );
+        )?;
 
-        if let Some(ref task_ids) = query.task_id {
-            write!(
-                request,
-                " task_id IN [{}]",
-                task_ids
-                    .iter()
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )?;
-        }
-
-        if let Some(after_id) = query.after_id {
-            write!(request, " task_id > {after_id}")?;
-        }
-
-        if let Some(before_id) = query.before_id {
-            write!(request, " task_id < {before_id}")?;
-        }
-
-        if let Some(ref statuses) = query.statuses {
-            write!(
-                request,
-                " status IN [{}]",
-                statuses
-                    .iter()
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )?;
-        }
-
-        if let Some(ref types) = query.types {
-            write!(
-                request,
-                " type IN [{}]",
-                types
-                    .iter()
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )?;
-        }
-
-        if request.ends_with("WHERE") {
-            request.replace_range(request.len() - "WHERE".len()..request.len(), ";");
-        } else {
-            request.push_str(";");
-        }
+        dbg!(&request);
 
         Ok(self
             .com
-            .prepare(&request)?
+            .prepare(&request)
+            .unwrap()
             .query_map(params![], |row| {
                 Ok(Task {
                     id: row.get(0)?,
