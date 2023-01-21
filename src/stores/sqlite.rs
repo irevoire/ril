@@ -7,7 +7,7 @@ use rusqlite::{
 use std::fmt::Write;
 use std::str::FromStr;
 
-use super::{Query, Status, Task, Type};
+use crate::{Query, Status, Task, Type};
 
 pub struct SqliteStore {
     com: Connection,
@@ -26,12 +26,12 @@ impl SqliteStore {
                 CREATE TYPE status AS ENUM ('enqueued', 'processing', 'succeeded', 'failed');
                 CREATE TYPE type AS ENUM ('indexCreation', 'indexDeletion', 'indexSwap', 'documentAddition', 'documentDeletion');
                 
-                CREATE TABLE IF NOT EXISTS tasks (
+                CREATE TABLE tasks (
                     task_id INT PRIMARY KEY,
                     status status,
                     type type
-        );
-        "#,
+                );
+                "#,
             )
             .expect("Error while preparing init query")
             .raw_execute()
@@ -40,12 +40,12 @@ impl SqliteStore {
         SqliteStore { com: connection }
     }
 
-    pub fn register(&self, task: Task) -> Result<()> {
+    pub fn insert(&self, task: &Task) -> Result<()> {
         self.com
             .prepare(
                 r#"
-            INSERT INTO tasks (task_id, status, type) VALUES (?, ?, ?);
-            "#,
+                INSERT INTO tasks (task_id, status, type) VALUES (?, ?, ?);
+                "#,
             )
             .unwrap()
             .execute(params![task.id, task.status, task.r#type])
@@ -54,13 +54,13 @@ impl SqliteStore {
         Ok(())
     }
 
-    pub fn query(&self, query: Query) -> Result<Vec<Task>> {
+    pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
         let mut request = format!(
             "SELECT (task_id, status, type) FROM tasks LIMIT {} OFFSET {} WHERE",
             query.limit, query.offset
         );
 
-        if let Some(task_ids) = query.task_id {
+        if let Some(ref task_ids) = query.task_id {
             write!(
                 request,
                 " task_id IN [{}]",
@@ -81,7 +81,7 @@ impl SqliteStore {
             write!(request, " task_id < {before_id}").unwrap();
         }
 
-        if let Some(statuses) = query.statuses {
+        if let Some(ref statuses) = query.statuses {
             write!(
                 request,
                 " status IN [{}]",
@@ -94,7 +94,7 @@ impl SqliteStore {
             .unwrap();
         }
 
-        if let Some(types) = query.types {
+        if let Some(ref types) = query.types {
             write!(
                 request,
                 " type IN [{}]",
@@ -107,7 +107,13 @@ impl SqliteStore {
             .unwrap();
         }
 
-        request.push_str(";");
+        if request.ends_with("WHERE") {
+            request.replace_range(request.len() - "WHERE".len()..request.len(), ";");
+        } else {
+            request.push_str(";");
+        }
+
+        dbg!(&request);
 
         Ok(self
             .com
