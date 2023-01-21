@@ -1,14 +1,11 @@
 use std::path::Path;
 
 use anyhow::Result;
-use heed::{
-    types::{OwnedType, SerdeJson},
-    Database, Env, EnvOpenOptions, RoTxn,
-};
+use heed::types::{OwnedType, SerdeJson};
+use heed::{Database, Env, EnvOpenOptions, RoTxn};
 use roaring::RoaringBitmap;
 
 use crate::codec::RoaringBitmapCodec;
-
 use crate::{Query, Status, Task, TaskId, Type};
 
 pub struct CustomStore {

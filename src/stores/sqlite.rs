@@ -1,11 +1,9 @@
-use anyhow::Result;
-use rusqlite::{
-    params,
-    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef},
-    Connection, ToSql,
-};
 use std::fmt::Write;
 use std::str::FromStr;
+
+use anyhow::Result;
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
+use rusqlite::{params, Connection, ToSql};
 
 use crate::{Query, Status, Task, Type};
 
