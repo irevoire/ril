@@ -5,6 +5,7 @@ use anyhow::Result;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
 use rusqlite::{params, Connection, ToSql};
 
+use super::Store;
 use crate::{Query, Status, Task, Type};
 
 pub struct SqliteStore {
@@ -32,8 +33,10 @@ impl SqliteStore {
 
         SqliteStore { com: connection }
     }
+}
 
-    pub fn insert(&self, task: &Task) -> Result<()> {
+impl Store for SqliteStore {
+    fn insert(&self, task: &Task) -> Result<()> {
         self.com
             .prepare(
                 r#"
@@ -45,13 +48,7 @@ impl SqliteStore {
         Ok(())
     }
 
-    pub fn delete(self) -> Result<()> {
-        drop(self);
-        std::fs::remove_file(DB_PATH)?;
-        Ok(())
-    }
-
-    pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
+    fn query(&self, query: &Query) -> Result<Vec<Task>> {
         let mut request = String::from("SELECT task_id, status, type FROM tasks");
 
         if !query.is_empty() {
@@ -122,6 +119,12 @@ impl SqliteStore {
                 })
             })?
             .collect::<Result<_, _>>()?)
+    }
+
+    fn delete(self) -> Result<()> {
+        drop(self);
+        std::fs::remove_file(DB_PATH)?;
+        Ok(())
     }
 }
 

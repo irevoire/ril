@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use clap::Parser;
 use ril::options::Option;
-use ril::stores::{CustomStore, SqliteStore};
+use ril::stores::{CustomStore, SqliteStore, Store};
 
 fn main() {
     let opt = Option::parse();

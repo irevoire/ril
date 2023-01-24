@@ -1,12 +1,13 @@
-use std::path::Path;
-
 use anyhow::Result;
 use heed::types::{OwnedType, SerdeJson};
 use heed::{Database, Env, EnvOpenOptions, RoTxn};
 use roaring::RoaringBitmap;
 
+use super::Store;
 use crate::codec::RoaringBitmapCodec;
 use crate::{Query, Status, Task, TaskId, Type};
+
+const DB_PATH: &str = "store.custom";
 
 pub struct CustomStore {
     env: Env,
@@ -17,9 +18,12 @@ pub struct CustomStore {
 
 impl CustomStore {
     pub fn new() -> Self {
-        let db_path = Path::new("store.custom");
-        std::fs::create_dir_all(db_path).unwrap();
-        let env = EnvOpenOptions::new().max_dbs(3).open(db_path).unwrap();
+        std::fs::create_dir_all(DB_PATH).unwrap();
+        let env = EnvOpenOptions::new()
+            .max_dbs(3)
+            .map_size(100 * 1024 * 1024) // 100GiB
+            .open(DB_PATH)
+            .unwrap();
         let mut wtxn = env.write_txn().unwrap();
 
         let tasks = env.create_database(&mut wtxn, Some("tasks")).unwrap();
@@ -39,10 +43,10 @@ impl CustomStore {
     fn last_task_id(&self, rtxn: &RoTxn) -> Result<Option<TaskId>> {
         Ok(self.tasks.last(rtxn)?.map(|(k, _v)| k))
     }
+}
 
-    // if you call this function twice at the same time the second call will wait on the blocking `write_txn`.
-    // reading while there is an insertion isn't an issue though.
-    pub fn insert(&self, task: &Task) -> Result<()> {
+impl Store for CustomStore {
+    fn insert(&self, task: &Task) -> Result<()> {
         let mut wtxn = self.env.write_txn()?;
 
         self.tasks.put(&mut wtxn, &task.id, &task)?;
@@ -63,7 +67,7 @@ impl CustomStore {
         Ok(())
     }
 
-    pub fn query(&self, query: &Query) -> Result<Vec<Task>> {
+    fn query(&self, query: &Query) -> Result<Vec<Task>> {
         let rtxn = self.env.read_txn()?;
         let last_task_id = match self.last_task_id(&rtxn)? {
             Some(last_task_id) => last_task_id,
@@ -113,5 +117,11 @@ impl CustomStore {
             })
             .take(query.limit)
             .collect()
+    }
+
+    fn delete(self) -> Result<()> {
+        drop(self);
+        std::fs::remove_dir_all(DB_PATH)?;
+        Ok(())
     }
 }
