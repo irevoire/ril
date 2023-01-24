@@ -11,9 +11,11 @@ pub struct SqliteStore {
     com: Connection,
 }
 
+const DB_PATH: &str = "store.sqlite";
+
 impl SqliteStore {
     pub fn new() -> Self {
-        let connection = Connection::open("store.sqlite").unwrap();
+        let connection = Connection::open(DB_PATH).unwrap();
         connection
             .prepare(
                 r#"
@@ -40,6 +42,12 @@ impl SqliteStore {
             )?
             .execute(params![task.id, task.status, task.r#type])?;
 
+        Ok(())
+    }
+
+    pub fn delete(self) -> Result<()> {
+        drop(self);
+        std::fs::remove_file(DB_PATH)?;
         Ok(())
     }
 

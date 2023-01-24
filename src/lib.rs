@@ -29,9 +29,9 @@ pub enum Type {
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, Parser)]
 pub struct Task {
-    id: TaskId,
-    status: Status,
-    r#type: Type,
+    pub id: TaskId,
+    pub status: Status,
+    pub r#type: Type,
 }
 
 const DEFAULT_QUERY_LIMIT: fn() -> usize = || 20;
