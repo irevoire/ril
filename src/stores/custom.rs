@@ -21,7 +21,7 @@ impl CustomStore {
         std::fs::create_dir_all(DB_PATH).unwrap();
         let env = EnvOpenOptions::new()
             .max_dbs(3)
-            .map_size(100 * 1024 * 1024) // 100GiB
+            .map_size(1024 * 1024 * 1024) // 1GiB
             .open(DB_PATH)
             .unwrap();
         let mut wtxn = env.write_txn().unwrap();
